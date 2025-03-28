@@ -2,24 +2,35 @@ import time
 import threading
 import http.client
 import json
+import random  # For simulated MQTT data
 import dash
 from dash import dcc, html, Input, Output
 import dash_leaflet as dl
+import paho.mqtt.client as mqtt
 
 # Data storage for display
 map_data = []
 
-# Map endpoints to tab labels
+# API Endpoints
 API_ENDPOINTS = {
     "Temperature": "/v1/environment/air-temperature",
     "Rainfall": "/v1/environment/rainfall",
     "Humidity": "/v1/environment/relative-humidity"
 }
 
+# MQTT Broker and Topics
+BROKER = "460dcdee90384eea9518b5463994b160.s1.eu.hivemq.cloud"
+PORT = 8883
+USERNAME = "deva33369"
+PASSWORD = "Dinesh0507"
+TOPIC_TEMP = "mosquito/trap/temperature"
+TOPIC_HUMIDITY = "mosquito/trap/humidity"
+TOPIC_RAIN = "mosquito/trap/rain"
+
+# Function to fetch API data
 def fetch_api_data():
     while True:
         try:
-            map_data.clear()  # Clear old data
             for label, endpoint in API_ENDPOINTS.items():
                 conn = http.client.HTTPSConnection("api.data.gov.sg")
                 conn.request("GET", endpoint)
@@ -39,7 +50,7 @@ def fetch_api_data():
                     # Match station metadata
                     station_info = next((s for s in stations if s["id"] == station_id), None)
                     if not station_info:
-                        continue  # Skip if station ID not found
+                        continue
 
                     latitude = station_info.get("location", {}).get("latitude")
                     longitude = station_info.get("location", {}).get("longitude")
@@ -48,7 +59,7 @@ def fetch_api_data():
                     # Check if the station already exists in map_data
                     existing_station = next((s for s in map_data if s["station_id"] == station_id), None)
                     if existing_station:
-                        if value != "N/A":  # Only update if the value is valid
+                        if value != "N/A":
                             existing_station[label] = value
                     else:
                         map_data.append({
@@ -56,16 +67,62 @@ def fetch_api_data():
                             "station_name": name,
                             "latitude": latitude,
                             "longitude": longitude,
-                            label: value  # Add the current weather parameter
+                            label: value
                         })
-            time.sleep(300)  # Fetch new data every 5 minutes
+            time.sleep(300)  # Fetch every 5 minutes
         except Exception as e:
             print(f"⚠️ Error fetching API data: {e}")
-            time.sleep(60)  # Retry in 1 minute if an error occurs
+            time.sleep(60)  # Retry after 1 minute
 
+# Function to handle MQTT messages
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode('utf-8'))
+        if msg.topic == TOPIC_TEMP:
+            update_station_data("Temperature", payload.get("temperature", "N/A"))
+        elif msg.topic == TOPIC_HUMIDITY:
+            update_station_data("Humidity", payload.get("humidity", "N/A"))
+        elif msg.topic == TOPIC_RAIN:
+            update_station_data("Rainfall", payload.get("rain", "N/A"))
+    except Exception as e:
+        print(f"⚠️ Error processing MQTT message: {e}")
 
-# Start API fetching in a separate thread
+# Update station data dynamically
+def update_station_data(label, value):
+    station_id = "S123"  # Replace with real mapping logic for MQTT data
+    existing_station = next((s for s in map_data if s["station_id"] == station_id), None)
+    if existing_station:
+        existing_station[label] = value
+    else:
+        map_data.append({
+            "station_id": station_id,
+            "station_name": "MQTT Station",
+            "latitude": 1.3521,  # Example latitude
+            "longitude": 103.8198,  # Example longitude
+            label: value
+        })
+
+# Start API fetching in a thread
 threading.Thread(target=fetch_api_data, daemon=True).start()
+
+# MQTT Client Setup
+client = mqtt.Client()
+client.username_pw_set(USERNAME, PASSWORD)
+client.tls_set()
+client.on_message = on_message
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("✅ Connected to MQTT Broker!")
+        client.subscribe(TOPIC_TEMP)
+        client.subscribe(TOPIC_HUMIDITY)
+        client.subscribe(TOPIC_RAIN)
+    else:
+        print(f"⚠️ Connection failed: {rc}")
+
+client.on_connect = on_connect
+client.connect(BROKER, PORT, 60)
+threading.Thread(target=client.loop_forever, daemon=True).start()
 
 # Dash App Setup
 app = dash.Dash(__name__)
@@ -82,7 +139,7 @@ app.layout = html.Div([
         dl.TileLayer(),
         dl.LayerGroup(id="layer")
     ], style={'width': '100%', 'height': '500px'}),
-    dcc.Interval(id="interval-component", interval=300000, n_intervals=0)
+    dcc.Interval(id="interval-component", interval=5000, n_intervals=0)  # Update every 5 seconds
 ])
 
 @app.callback(
@@ -95,12 +152,10 @@ def update_map(n_intervals, search_station_id):
         return []  # Return an empty layer if no data is available
 
     # Filter stations based on search input
-    if search_station_id:
-        filtered_data = [
-            entry for entry in map_data if entry["station_id"].lower() == search_station_id.lower()
-        ]
-    else:
-        filtered_data = map_data
+    filtered_data = [
+        entry for entry in map_data if not search_station_id or
+        entry["station_id"].lower() == search_station_id.lower()
+    ]
 
     # Create markers for the map
     markers = []
