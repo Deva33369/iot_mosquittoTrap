@@ -2,11 +2,11 @@ import time
 import threading
 import http.client
 import json
-import random  # For simulated MQTT data
 import dash
 from dash import dcc, html, Input, Output
 import dash_leaflet as dl
 import paho.mqtt.client as mqtt
+import socket  # For network error handling
 
 # Data storage for display
 map_data = []
@@ -32,7 +32,7 @@ def fetch_api_data():
     while True:
         try:
             for label, endpoint in API_ENDPOINTS.items():
-                conn = http.client.HTTPSConnection("api.data.gov.sg")
+                conn = http.client.HTTPSConnection("api.data.gov.sg", timeout=5)  # Timeout added
                 conn.request("GET", endpoint)
                 res = conn.getresponse()
                 response_data = res.read()
@@ -70,8 +70,8 @@ def fetch_api_data():
                             label: value
                         })
             time.sleep(300)  # Fetch every 5 minutes
-        except Exception as e:
-            print(f"⚠️ Error fetching API data: {e}")
+        except (socket.gaierror, http.client.HTTPException) as e:
+            print(f"⚠️ Network error fetching API data: {e}")
             time.sleep(60)  # Retry after 1 minute
 
 # Function to handle MQTT messages
@@ -105,12 +105,13 @@ def update_station_data(label, value):
 # Start API fetching in a thread
 threading.Thread(target=fetch_api_data, daemon=True).start()
 
-# MQTT Client Setup
-client = mqtt.Client()
+# ✅ FIX: Removed `callback_api_version=2` to prevent MQTT error
+client = mqtt.Client()  
 client.username_pw_set(USERNAME, PASSWORD)
 client.tls_set()
 client.on_message = on_message
 
+# MQTT Connection Callback
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("✅ Connected to MQTT Broker!")
@@ -121,8 +122,12 @@ def on_connect(client, userdata, flags, rc):
         print(f"⚠️ Connection failed: {rc}")
 
 client.on_connect = on_connect
-client.connect(BROKER, PORT, 60)
-threading.Thread(target=client.loop_forever, daemon=True).start()
+
+try:
+    client.connect(BROKER, PORT, 60)
+    threading.Thread(target=client.loop_forever, daemon=True).start()
+except socket.gaierror:
+    print("❌ MQTT Connection failed: No internet or DNS issue.")
 
 # Dash App Setup
 app = dash.Dash(__name__)
@@ -175,4 +180,4 @@ def update_map(n_intervals, search_station_id):
     return markers
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run(debug=True)
