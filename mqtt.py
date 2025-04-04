@@ -1,55 +1,108 @@
 import paho.mqtt.client as mqtt
 import json
+import re
+import threading
+import time
+from datetime import datetime
 
-# HiveMQ Cloud credentials (Same as the server)
-BROKER = "460dcdee90384eea9518b5463994b160.s1.eu.hivemq.cloud"
-PORT = 8883  # Secure MQTT port
-USERNAME = "deva33369"
-PASSWORD = "Dinesh0507"
+# MQTT Configuration
+BROKER = "303e2aaaa7cf4df1951cfe02e9e5b48e.s1.eu.hivemq.cloud"
+PORT = 8883
+USERNAME = "hivemq.webclient.1743741055572"
+PASSWORD = "59N1.,BKlPLun?@t0qaX"
 
-# MQTT Topic (Same as the server)
-TOPIC = "sensor"
+# Topics
+TOPIC_RECEIVE = "sensor"  # Receiving from LoRa
+TOPIC_PUBLISH = "sensor"  # Sending to Node-RED
 
-# Callback when connected to the broker
+# Buffer to store fragmented messages
+message_buffer = ""
+# Store the last received valid data
+last_valid_data = None
+
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("✅ Connected to HiveMQ Cloud MQTT Broker!")
-        client.subscribe(TOPIC)  # Subscribe to the topic
-        print(f"📡 Subscribed to topic: {TOPIC}")
+        print("✅ Connected to MQTT Broker!")
+        client.subscribe(TOPIC_RECEIVE)
     else:
-        print(f"⚠️ Connection failed with error code {rc}")
+        print(f"❌ Connection failed (code: {rc})")
 
-# Callback when disconnected
-def on_disconnect(client, userdata, rc):
-    print("❌ Disconnected from MQTT Broker")
-
-# Callback when a message is received
 def on_message(client, userdata, msg):
-    try:
-        payload = msg.payload.decode()
-        json_data = json.loads(payload)  # Decode JSON
-        print(f"📥 Received data from server: {json_data}")  # Print the data
-    except json.JSONDecodeError:
-        print(f"⚠️ Malformed message received: {payload}")
+    global message_buffer, last_valid_data
+    payload = msg.payload.decode().strip()
+    
+    # Append new data to buffer
+    message_buffer += payload
 
-# Debugging logs (optional)
-def on_log(client, userdata, level, buf):
-    print(f"[LOG] {buf}")
+    while True:
+        start = message_buffer.find('{')
+        end = message_buffer.find('}', start)
 
-# Create MQTT Client
+        if start == -1 or end == -1:
+            # Incomplete JSON, wait for more data
+            break
+
+        json_str = message_buffer[start:end+1]
+
+        # Remove extra `}` if detected
+        if message_buffer[end+1:end+2] == "}":
+            message_buffer = message_buffer[:end+1] + message_buffer[end+2:]
+
+        try:
+            # Remove checksum if present
+            json_str = re.sub(r',\s*"checksum":\d+\s*}$', '}', json_str)
+
+            # Parse JSON
+            data = json.loads(json_str)
+
+            # Format the data with timestamp
+            formatted_data = {
+                "nodeID": data.get("nodeID"),
+                "destinationID": data.get("destinationID", "821446"),
+                "eCO2": data.get("eCO2"),
+                "temperature": data.get("temperature"),
+                "humidity": data.get("humidity"),
+                "mosquito": data.get("mosquito", 0),
+                "location": data.get("location", "unknown"),
+                "timestamp": datetime.now().isoformat()
+            }
+
+            print("📥 Received:", formatted_data)
+            
+            # Store the valid data
+            last_valid_data = formatted_data
+            
+            # Remove processed message from buffer
+            message_buffer = message_buffer[end+1:].strip()
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"⚠️ Skipping malformed JSON: {json_str} (Error: {e})")
+            message_buffer = message_buffer[end+1:].strip()
+
+def send_data_to_nodered(client):
+    global last_valid_data
+    while True:
+        if last_valid_data:
+            # Send the actual received data to Node-RED
+            print(f"🚀 Publishing to Node-RED: {last_valid_data}")
+            client.publish(TOPIC_PUBLISH, json.dumps(last_valid_data))
+        
+        time.sleep(15)  # Wait for 15 seconds before sending data again
+
+# Initialize MQTT client
 client = mqtt.Client()
 client.username_pw_set(USERNAME, PASSWORD)
-client.tls_set()  # Enable TLS encryption
-
-# Assign callbacks
+client.tls_set()  # Enable TLS
 client.on_connect = on_connect
-client.on_disconnect = on_disconnect
 client.on_message = on_message
-client.on_log = on_log  # Uncomment to debug connection issues
 
-# Connect to the broker
 print("🔄 Connecting to MQTT Broker...")
 client.connect(BROKER, PORT, 60)
 
-# Start the MQTT loop to listen for messages
+# Start a new thread to send data every 15 seconds
+thread = threading.Thread(target=send_data_to_nodered, args=(client,))
+thread.daemon = True  # Ensure the thread stops when the main program exits
+thread.start()
+
+# Keep the MQTT loop running
 client.loop_forever()
