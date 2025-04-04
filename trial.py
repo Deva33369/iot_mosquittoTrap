@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
 # MQTT Configuration
 BROKER = "460dcdee90384eea9518b5463994b160.s1.eu.hivemq.cloud"
 PORT = 8883
-TOPIC = "mosquito/trap/sensor_data"
+TOPIC = "sensor"
 
 client = mqtt.Client()
 client.username_pw_set("deva33369", "Dinesh0507")

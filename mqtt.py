@@ -1,97 +1,123 @@
-import time
-import threading
-import http.client
-import json
 import paho.mqtt.client as mqtt
-import socket  # For network error handling
+import json
+import re
+import threading
+import time
 
-# MQTT Broker and Topic
+# MQTT Configuration
 BROKER = "460dcdee90384eea9518b5463994b160.s1.eu.hivemq.cloud"
 PORT = 8883
 USERNAME = "deva33369"
 PASSWORD = "Dinesh0507"
-TOPIC_TEMP = "mosquito/trap/temperature"  # Publishing & Subscribing temperature
 
-# API Endpoint for Temperature
-API_URL = "/v1/environment/air-temperature"
+# Topics
+TOPIC_RECEIVE = "sensor"  # Receiving from LoRa
+TOPIC_PUBLISH = "sensor"  # Sending to Node-RED
 
-# MQTT Client Setup
-client = mqtt.Client()
-client.username_pw_set(USERNAME, PASSWORD)
-client.tls_set()
+# Buffer to store fragmented messages
+message_buffer = ""
 
-# Callback when connected to MQTT Broker
+# Global flag to indicate when to send data to Node-RED
+send_data_flag = False
+
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("✅ Connected to MQTT Broker!")
-        client.subscribe(TOPIC_TEMP)  # Subscribe to receive messages
-        print(f"📡 Subscribed to: {TOPIC_TEMP}")
+        client.subscribe(TOPIC_RECEIVE)
     else:
-        print(f"⚠️ Connection failed: {rc}")
+        print(f"❌ Connection failed (code: {rc})")
 
-# Callback when a message is received
 def on_message(client, userdata, msg):
-    try:
-        payload = msg.payload.decode('utf-8')
-        print(f"📥 Received message on {msg.topic}: {payload}")  # Print received data
-    except Exception as e:
-        print(f"⚠️ Error decoding message: {e}")
+    global message_buffer
+    payload = msg.payload.decode().strip()
+    
+    # Append new data to buffer
+    message_buffer += payload
 
-# Assign callbacks
+    while True:
+        start = message_buffer.find('{')
+        end = message_buffer.find('}', start)
+
+        if start == -1 or end == -1:
+            # Incomplete JSON, wait for more data
+            break
+
+        json_str = message_buffer[start:end+1]
+
+        # 💡 FIX: Remove extra `}` if detected
+        if message_buffer[end+1:end+2] == "}":
+            message_buffer = message_buffer[:end+1] + message_buffer[end+2:]
+
+        try:
+            # Remove checksum if present
+            json_str = re.sub(r',\s*"checksum":\d+\s*}$', '}', json_str)
+
+            # Ensure JSON does not have unexpected spaces
+            json_str = re.sub(r'\s+', '', json_str)
+
+            # Parse JSON
+            data = json.loads(json_str)
+
+            # Format and publish
+            formatted_data = {
+                "nodeID": data.get("nodeID"),
+                "destinationID": data.get("destinationID"),
+                "eCO2": data.get("eCO2"),
+                "temperature": data.get("temperature"),
+                "humidity": data.get("humidity"),
+                "mosquito": data.get("mosquito") if data.get("mosquito") is not None else None,  # Handle undefined mosquito count
+                "location": data.get("location"),
+                "timestamp": data.get("timestamp") or None
+            }
+
+            print("📥 Received:", formatted_data)
+
+            # Set the flag to send data to Node-RED every 15 seconds
+            global send_data_flag
+            send_data_flag = True
+
+            # Remove processed message from buffer
+            message_buffer = message_buffer[end+1:].strip()
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"⚠️ Skipping malformed JSON: {json_str} (Error: {e})")
+            message_buffer = message_buffer[end+1:].strip()
+
+def send_data_to_nodered(client):
+    global send_data_flag
+    while True:
+        if send_data_flag:
+            # Send the data to Node-RED
+            formatted_data = {
+                "nodeID": 2,  # Dummy data
+                "destinationID": "821446",
+                "eCO2": 428,
+                "temperature": 25.0,
+                "humidity": 79.0,
+                "mosquito": 0,
+                "location": "level 2",
+                "timestamp": None  # Replace with actual timestamp if needed
+            }
+            print(f"🚀 Published to Node-RED: {formatted_data}")
+            client.publish(TOPIC_PUBLISH, json.dumps(formatted_data))
+            send_data_flag = False  # Reset the flag after sending data
+
+        time.sleep(15)  # Wait for 15 seconds before sending data again
+
+# Initialize MQTT client
+client = mqtt.Client()
+client.username_pw_set(USERNAME, PASSWORD)
+client.tls_set()  # Enable TLS
 client.on_connect = on_connect
 client.on_message = on_message
 
-# Connect to MQTT Broker
-try:
-    client.connect(BROKER, PORT, 60)
-    threading.Thread(target=client.loop_forever, daemon=True).start()
-except socket.gaierror:
-    print("❌ MQTT Connection failed: No internet or DNS issue.")
+print("🔄 Connecting to MQTT Broker...")
+client.connect(BROKER, PORT, 60)
 
-# Function to Fetch Temperature, Station Name and Publish to MQTT
-def fetch_and_publish_temperature():
-    while True:
-        try:
-            print("🌡️ Fetching temperature data from API...")
-            conn = http.client.HTTPSConnection("api.data.gov.sg", timeout=5)
-            conn.request("GET", API_URL)
-            res = conn.getresponse()
-            response_data = res.read()
+# Start a new thread to send data every 15 seconds
+thread = threading.Thread(target=send_data_to_nodered, args=(client,))
+thread.daemon = True  # Ensure the thread stops when the main program exits
+thread.start()
 
-            # Parse JSON response
-            json_data = json.loads(response_data.decode("utf-8"))
-            readings = json_data.get("items", [{}])[0].get("readings", [])
-            stations = json_data.get("metadata", {}).get("stations", [])
-
-            if not readings or not stations:
-                print("⚠️ No temperature data available from API.")
-            else:
-                for reading in readings:
-                    station_id = reading.get("station_id", "Unknown")
-                    temperature = reading.get("value", "N/A")
-
-                    # Match station ID to get station name
-                    station_info = next((s for s in stations if s["id"] == station_id), None)
-                    station_name = station_info.get("name", "Unknown") if station_info else "Unknown"
-
-                    # Publish to MQTT
-                    temp_payload = json.dumps({
-                        "station_id": station_id,
-                        "station_name": station_name,
-                        "temperature": temperature
-                    })
-                    client.publish(TOPIC_TEMP, temp_payload)
-                    print(f"📡 Published Temperature Data: {temp_payload}")
-
-            time.sleep(300)  # Fetch and publish every 5 minutes
-
-        except (socket.gaierror, http.client.HTTPException, json.JSONDecodeError) as e:
-            print(f"⚠️ Network/API Error: {e}")
-            time.sleep(60)  # Retry after 1 minute
-
-# Start fetching and publishing temperature in a thread
-threading.Thread(target=fetch_and_publish_temperature, daemon=True).start()
-
-# Keep the script running
-while True:
-    time.sleep(1)
+# Keep the MQTT loop running
+client.loop_forever()
