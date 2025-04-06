@@ -50,7 +50,11 @@ This project focuses on building an IoT system for intelligent mosquito trapping
 
 ## Compile & Run
 
-'```bashgcc -o central_node_pi central_node_pi.c -lpaho-mqtt3cs ./central_node_pi'
+# Compile the central node program
+gcc -o central_node_pi central_node_pi.c -lpaho-mqtt3cs
+
+# Execute the compiled program
+./central_node_pi
 
 ### File: `central_node_pi.c`
 This file is the MQTT client running on the Raspberry Pi. It receives data via serial from the central LoRa or LoRaMesh node and publishes it to an MQTT broker.
@@ -65,7 +69,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 - Maintains data buffer for incomplete messages
 
 ## Data Processing & Storage 
-### Node-RED
+- * ### Node-RED *
 - Receives and validates MQTT messages
 
 - Transforms data into consistent schema
@@ -74,7 +78,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 
 - Routes data to MongoDB
 
-### MongoDB
+- * ### MongoDB *
 - Structured document storage
 
 - Time-series data optimization
