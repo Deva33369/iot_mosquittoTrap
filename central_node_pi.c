@@ -7,10 +7,10 @@
 #include <unistd.h>     // UNIX standard function definitions
 #include <MQTTClient.h>
 
-#define BROKER_ADDRESS "ssl://460dcdee90384eea9518b5463994b160.s1.eu.hivemq.cloud:8883"
+#define BROKER_ADDRESS "ssl://303e2aaaa7cf4df1951cfe02e9e5b48e.s1.eu.hivemq.cloud:8883"
 #define CLIENT_ID "RaspberryPi_Serial_Publisher"
-#define USERNAME "deva33369"
-#define PASSWORD "Dinesh0507"
+#define USERNAME "hivemq.webclient.1743741055572"
+#define PASSWORD "59N1.,BKlPLun?@t0qaX"
 #define TOPIC "sensor"
 #define QOS 1
 #define INTERVAL 5
