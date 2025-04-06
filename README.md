@@ -37,72 +37,74 @@ This project focuses on building an IoT system for intelligent mosquito trapping
 ---
 ## Cloud Data Pipeline
 ### MQTT Broker (HiveMQ Cloud)
-Secure TLS connection (port 8883)
+- Secure TLS connection (port 8883)
 
-Authentication with username/password
+- Authentication with username/password
 
-Dedicated topics for sensor data
+- Dedicated topics for sensor data
 
-High availability cloud infrastructure
+- High availability cloud infrastructure
 
 
 ### Raspberry Pi MQTT Central Node
 
+## Compile & Run
+
+#```bashgcc -o central_node_pi central_node_pi.c -lpaho-mqtt3cs ./central_node_pi
+
 ### File: `central_node_pi.c`
 This file is the MQTT client running on the Raspberry Pi. It receives data via serial from the central LoRa or LoRaMesh node and publishes it to an MQTT broker.
 
-
-
 ### Python MQTT Client (Data Processor)
-Connects to HiveMQ Cloud
+- Connects to HiveMQ Cloud
 
-Handles message fragmentation and JSON parsing
+- Handles message fragmentation and JSON parsing
 
-Formats data with timestamps
+- Formats data with timestamps
 
-Maintains data buffer for incomplete messages
+- Maintains data buffer for incomplete messages
 
 ## Data Processing & Storage 
 ### Node-RED
-Receives and validates MQTT messages
+- Receives and validates MQTT messages
 
-Transforms data into consistent schema
+- Transforms data into consistent schema
 
-Implements data quality checks
+- Implements data quality checks
 
-Routes data to MongoDB
+- Routes data to MongoDB
 
 ### MongoDB
-Structured document storage
+- Structured document storage
 
-Time-series data optimization
+- Time-series data optimization
 
-Indexed for fast queries
+- Indexed for fast queries
 
-Secure data persistence
+- Secure data persistence
 
 ## Visualisation Dashboard 
 ### Node-RED Dashboard
-Real-time monitoring of sensor data
+- Real-time monitoring of sensor data
 
-Historical trend visualization
+- Historical trend visualization
 
-Alerting for threshold violations
+- Alerting for threshold violations
 
-Multi-device responsive design
+- Multi-device responsive design
 
 ## Data Flow 
-Sensor nodes collect environmental data (temperature, humidity, eCO2) and mosquito counts
+- Sensor nodes collect environmental data (temperature, humidity, eCO2) and mosquito counts
 
-Data transmits via LoRa/LoRaMesh to Raspberry Pi gateways
+- Data transmits via LoRa/LoRaMesh to Raspberry Pi gateways
 
-Gateways forward data to HiveMQ Cloud via MQTT
+- Gateways forward data to HiveMQ Cloud via MQTT
 
-Python processor formats and validates incoming data
+- Python processor formats and validates incoming data
 
-Node-RED processes and stores data in MongoDB
+- Node-RED processes and stores data in MongoDB
 
-Dashboard visualizes current and historical data
+- Dashboard visualizes current and historical data
 
 ### Message Format 
 {
@@ -117,51 +119,52 @@ Dashboard visualizes current and historical data
 }
 
 ## Key Features 
-Real-time Monitoring: Immediate visibility of mosquito trap data
+- Real-time Monitoring: Immediate visibility of mosquito trap data
 
-Mesh Networking: Flexible deployment with LoRaMesh
+- Mesh Networking: Flexible deployment with LoRaMesh
 
-Data Integrity: Robust handling of network issues and malformed data
+- Data Integrity: Robust handling of network issues and malformed data
 
-Secure Pipeline: TLS encryption throughout the system
+- Secure Pipeline: TLS encryption throughout the system
 
-Historical Analysis: MongoDB storage enables trend analysis
+- Historical Analysis: MongoDB storage enables trend analysis
 
-Scalable Architecture: Cloud-based components handle growing deployments
+- Scalable Architecture: Cloud-based components handle growing deployments
 
 ## Setup Instructions 
 ### Field Deployment:
 
-Configure sensor nodes with unique IDs
+- Configure sensor nodes with unique IDs
 
-Set up LoRa/LoRaMesh network parameters
+- Set up LoRa/LoRaMesh network parameters
 
-Deploy Raspberry Pi gateways
+- Deploy Raspberry Pi gateways
 
 ### Cloud Setup:
 
-Configure HiveMQ Cloud instance
+- Configure HiveMQ Cloud instance
 
-Set up MQTT topics and access controls
+- Set up MQTT topics and access controls
 
-Deploy Python data processor
+- Deploy Python data processor
 
 ### Node-RED & MongoDB:
 
-Install and configure Node-RED flows
+- Install and configure Node-RED flows
 
-Set up MongoDB connection
+- Set up MongoDB connection
 
-Design dashboard interface
+- Design dashboard interface
 
 ## Maintenance & Monitoring
-The system includes:
+-**The system includes:**
 
-Connection health checks
+- Connection health checks
 
-Data flow metrics
+- Data flow metrics
 
-Alerting for system failures
+- Alerting for system failures
 
-Comprehensive logging
+- Comprehensive logging
+
 
