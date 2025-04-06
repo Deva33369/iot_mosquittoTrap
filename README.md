@@ -69,7 +69,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 - Maintains data buffer for incomplete messages
 
 ## Data Processing & Storage 
-- * ### Node-RED *
+### Node-RED
 - Receives and validates MQTT messages
 
 - Transforms data into consistent schema
@@ -161,7 +161,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 - Design dashboard interface
 
 ## Maintenance & Monitoring
--**The system includes:**
+**The system includes:**
 
 - Connection health checks
 
