@@ -50,10 +50,10 @@ This project focuses on building an IoT system for intelligent mosquito trapping
 
 ## Compile & Run
 
-### Compile the central node program
+# Compile the central node program
 gcc -o central_node_pi central_node_pi.c -lpaho-mqtt3cs
 
-### Execute the compiled program
+# Execute the compiled program
 ./central_node_pi
 
 ### File: `central_node_pi.c`
@@ -69,7 +69,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 - Maintains data buffer for incomplete messages
 
 ## Data Processing & Storage 
-- **Node-RED** 
+- * ### Node-RED *
 - Receives and validates MQTT messages
 
 - Transforms data into consistent schema
@@ -78,7 +78,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 
 - Routes data to MongoDB
 
-- **MongoDB**
+### MongoDB
 - Structured document storage
 
 - Time-series data optimization
@@ -88,7 +88,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 - Secure data persistence
 
 ## Visualisation Dashboard 
-- **Node-RED Dashboard**
+### Node-RED Dashboard
 - Real-time monitoring of sensor data
 
 - Historical trend visualization
@@ -136,7 +136,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 - Scalable Architecture: Cloud-based components handle growing deployments
 
 ## Setup Instructions 
-- **Field Deployment:**
+### Field Deployment:
 
 - Configure sensor nodes with unique IDs
 
@@ -144,7 +144,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 
 - Deploy Raspberry Pi gateways
 
-- **Cloud Setup:**
+### Cloud Setup:
 
 - Configure HiveMQ Cloud instance
 
@@ -152,7 +152,7 @@ This file is the MQTT client running on the Raspberry Pi. It receives data via s
 
 - Deploy Python data processor
 
-- **Node-RED & MongoDB:**
+### Node-RED & MongoDB:
 
 - Install and configure Node-RED flows
 
