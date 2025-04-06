@@ -46,20 +46,20 @@ This project focuses on building an IoT system for intelligent mosquito trapping
 - High availability cloud infrastructure
 
 
-### Raspberry Pi MQTT Central Node
-
-## Compile & Run
-
-# Compile the central node program
-gcc -o central_node_pi central_node_pi.c -lpaho-mqtt3cs
-
-# Execute the compiled program
-./central_node_pi
+## Raspberry Pi MQTT Central Node
 
 ### File: `central_node_pi.c`
-This file is the MQTT client running on the Raspberry Pi. It receives data via serial from the central LoRa or LoRaMesh node and publishes it to an MQTT broker.
+This file is the MQTT client running on the Raspberry Pi. It receives data via serial from the central LoRa node and publishes it to an MQTT broker.
 
-### Python MQTT Client (Data Processor)
+### Compile & Run
+
+```bash
+gcc -o central_node_pi central_node_pi.c -lpaho-mqtt3cs
+./central_node_pi
+```
+
+## Python MQTT Client (Data Processor)
+### File: `mqtt.py`
 - Connects to HiveMQ Cloud
 
 - Handles message fragmentation and JSON parsing
